@@ -1,0 +1,4 @@
+peewee
+pendulum>=2.0.0
+blinker
+

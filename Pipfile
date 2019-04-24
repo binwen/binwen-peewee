@@ -1,0 +1,26 @@
+[[source]]
+name = "pypi"
+url = "https://mirrors.aliyun.com/pypi/simple/"
+verify_ssl = true
+
+[dev-packages]
+peewee = "*"
+pendulum = ">=2.0.0"
+blinker = "*"
+pytest = "*"
+pytest-cov = "*"
+flake8 = "*"
+coveralls = "*"
+codeclimate-test-reporter = "*"
+coverage = "*"
+grpcio = "*"
+grpcio-tools = "*"
+
+[packages]
+peewee = "*"
+pendulum = "*"
+blinker = "*"
+grpcio = "*"
+
+[requires]
+python_version = "3.7"

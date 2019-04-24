@@ -1,0 +1,7 @@
+-r requirements.txt
+pytest
+pytest-cov
+flake8
+coveralls
+codeclimate-test-reporter
+coverage
