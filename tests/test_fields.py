@@ -1,7 +1,6 @@
 import pytest
 import datetime
 
-from peeweext import fields
 from peeweext.binwen import PeeweeExt
 
 
@@ -15,9 +14,9 @@ db.init_app(app)
 
 
 class Note(db.Model):
-    published_at = fields.DatetimeTZField(null=True)
-    content = fields.JSONField(default={})
-    remark = fields.JSONField(null=True)
+    published_at = db.DatetimeTZField(null=True)
+    content = db.JSONTextField(default={})
+    remark = db.JSONTextField(null=True)
 
 
 @pytest.fixture

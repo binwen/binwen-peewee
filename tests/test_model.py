@@ -5,7 +5,7 @@ import datetime
 from io import StringIO
 import inspect
 
-from peeweext import fields, signal
+from peeweext import signal
 from peeweext.binwen import PeeweeExt
 from peeweext.exceptions import ValidationError
 
@@ -20,10 +20,10 @@ db.init_app(app)
 
 
 class Note(db.Model):
-    message = peewee.TextField()
-    published_at = fields.DatetimeTZField(null=True)
-    content = fields.JSONField(default={})
-    remark = fields.JSONField(null=True)
+    message = db.TextField()
+    published_at = db.DatetimeTZField(null=True)
+    content = db.JSONTextField(default={})
+    remark = db.JSONTextField(null=True)
 
     def validate_message(self, value):
         if value == 'raise error':
@@ -31,10 +31,10 @@ class Note(db.Model):
 
 
 class WhiteListNote(db.Model):
-    f1 = peewee.IntegerField(default=1)
-    f2 = peewee.IntegerField(default=2)
-    f3 = peewee.IntegerField(default=3)
-    f4 = peewee.IntegerField(default=4)
+    f1 = db.IntegerField(default=1)
+    f2 = db.IntegerField(default=2)
+    f3 = db.IntegerField(default=3)
+    f4 = db.IntegerField(default=4)
 
     class Meta:
         has_whitelist = True
@@ -43,10 +43,10 @@ class WhiteListNote(db.Model):
 
 
 class NoWhiteListNote(db.Model):
-    f1 = peewee.IntegerField(default=1)
-    f2 = peewee.IntegerField(default=2)
-    f3 = peewee.IntegerField(default=3)
-    f4 = peewee.IntegerField(default=4)
+    f1 = db.IntegerField(default=1)
+    f2 = db.IntegerField(default=2)
+    f3 = db.IntegerField(default=3)
+    f4 = db.IntegerField(default=4)
 
     class Meta:
         accessible_fields = ['f1', 'f2', 'f3']

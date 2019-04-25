@@ -38,8 +38,8 @@ class DatetimeTZField(peewee.Field):
         return value.astimezone(datetime.timezone.utc)
 
 
-class JSONField(peewee.TextField):
-    field_type = 'LONGTEXT'
+class JSONTextField(peewee.TextField):
+    field_type = 'JSON'
 
     def db_value(self, value):
         if value is None:

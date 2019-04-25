@@ -1,11 +1,28 @@
 import grpc
+import peewee
 from playhouse import db_url
 from peewee import DoesNotExist, DataError
 from binwen.pb2 import default_pb2
 from binwen.utils import import_obj, cached_property
 from binwen.middleware import BaseMiddleware
 
+from peeweext.fields import DatetimeTZField, JSONTextField
 from peeweext.exceptions import ValidationError
+
+
+def _include_peewee(obj):
+    for key in peewee.__all__:
+        if key == "Model":
+            continue
+
+        try:
+            if not hasattr(obj, key):
+                setattr(obj, key, getattr(peewee, key))
+        except:
+            pass
+
+    obj.DatetimeTZField = DatetimeTZField
+    obj.JSONTextField = JSONTextField
 
 
 class PeeweeExt:
@@ -13,6 +30,8 @@ class PeeweeExt:
         self.alias = alias
         self.database = None
         self.model_class = None
+
+        _include_peewee(self)
 
     def init_app(self, app):
         db_config = app.config["DATABASES"][self.alias]
