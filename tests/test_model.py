@@ -4,7 +4,7 @@ import pendulum
 import datetime
 from io import StringIO
 import inspect
-
+import peeweext
 from peeweext import signal
 from peeweext.binwen import PeeweeExt
 from peeweext.exceptions import ValidationError
@@ -20,10 +20,19 @@ db.init_app(app)
 
 
 class Note(db.Model):
-    message = db.TextField()
-    published_at = db.DatetimeTZField(null=True)
-    content = db.JSONTextField(default={})
-    remark = db.JSONTextField(null=True)
+    message = peeweext.TextField()
+    published_at = peeweext.DatetimeTZField(null=True)
+    content = peeweext.JSONTextField(default={})
+    remark = peeweext.JSONTextField(null=True)
+
+    def validate_message(self, value):
+        if value == 'raise error':
+            raise ValidationError
+
+
+class TimeStampedNote(db.TimeStampedModel):
+    message = peeweext.TextField()
+    published_at = peeweext.DatetimeTZField(null=True)
 
     def validate_message(self, value):
         if value == 'raise error':
@@ -31,10 +40,10 @@ class Note(db.Model):
 
 
 class WhiteListNote(db.Model):
-    f1 = db.IntegerField(default=1)
-    f2 = db.IntegerField(default=2)
-    f3 = db.IntegerField(default=3)
-    f4 = db.IntegerField(default=4)
+    f1 = peeweext.IntegerField(default=1)
+    f2 = peeweext.IntegerField(default=2)
+    f3 = peeweext.IntegerField(default=3)
+    f4 = peeweext.IntegerField(default=4)
 
     class Meta:
         has_whitelist = True
@@ -43,10 +52,10 @@ class WhiteListNote(db.Model):
 
 
 class NoWhiteListNote(db.Model):
-    f1 = db.IntegerField(default=1)
-    f2 = db.IntegerField(default=2)
-    f3 = db.IntegerField(default=3)
-    f4 = db.IntegerField(default=4)
+    f1 = peeweext.IntegerField(default=1)
+    f2 = peeweext.IntegerField(default=2)
+    f3 = peeweext.IntegerField(default=3)
+    f4 = peeweext.IntegerField(default=4)
 
     class Meta:
         accessible_fields = ['f1', 'f2', 'f3']
@@ -56,22 +65,42 @@ class NoWhiteListNote(db.Model):
 @pytest.fixture
 def table():
     Note.create_table()
+    TimeStampedNote.create_table()
     yield
     Note.drop_table()
+    TimeStampedNote.drop_table()
 
 
 def test_model(table):
     n = Note.create(message='Hello')
+    n = Note.get(id=n.id)
+
+    with pytest.raises(ValueError):
+        n.published_at = datetime.datetime.utcnow()
+        n.save()
+
+    n.published_at = pendulum.now()
+    n.save()
+
+    out = StringIO()
+
+    def post_delete(sender, instance):
+        out.write('post_delete received')
+
+    signal.post_delete.connect(post_delete, sender=Note)
+    n.delete_instance()
+
+    assert 'post_delete' in out.getvalue()
+
+
+def test_timestampedmodel(table):
+    n = TimeStampedNote.create(message='Hello')
     updated_at = n.updated_at
     with pytest.raises(peewee.IntegrityError):
         n.created_at = None
         n.save()
 
-    n = Note.get(id=n.id)
-
-    # with pytest.raises(ValueError):
-    #     n.published_at = '1900-01-01T00:00:00'
-    #     n.save()
+    n = TimeStampedNote.get(id=n.id)
 
     with pytest.raises(ValueError):
         n.published_at = datetime.datetime.utcnow()
@@ -80,13 +109,17 @@ def test_model(table):
     n.published_at = pendulum.now()
     n.save()
     assert n.updated_at > updated_at
-
+    n1 = TimeStampedNote.get(id=n.id)
+    rows = TimeStampedNote.update(message="Hellobw").where(TimeStampedNote.id==n.id).execute()
+    assert rows == 1
+    n2 = TimeStampedNote.get(id=n.id)
+    assert n2.updated_at > n1.updated_at
     out = StringIO()
 
     def post_delete(sender, instance):
         out.write('post_delete received')
 
-    signal.post_delete.connect(post_delete, sender=Note)
+    signal.post_delete.connect(post_delete, sender=TimeStampedNote)
     n.delete_instance()
 
     assert 'post_delete' in out.getvalue()

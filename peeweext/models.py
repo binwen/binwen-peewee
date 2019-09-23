@@ -1,11 +1,23 @@
 import json
 import inspect
+
 import peewee
 import pendulum
-
-from peeweext.fields import DatetimeTZField
+from peewee import OP, Expression, DJANGO_MAP
+from peeweext.fields import CreationDateTimeField, ModificationDateTimeField
 from peeweext.exceptions import ValidationError
 from peeweext.signal import pre_init, post_delete, pre_delete, pre_save, post_save
+
+CUSTOM_DJANGO_MAP = {
+    "exact": lambda l, r: Expression(l, OP.EQ, r),  # 精确等于，忽略大小写
+    "contains": lambda l, r: Expression(l, OP.LIKE, '%%%s%%' % r),   # 包含 like '%aaa%'
+    "icontains": lambda l, r: Expression(l, OP.ILIKE, '%%%s%%' % r),  # 包含 忽略大小写 ilike '%aaa%'
+    "startswith": lambda l, r: Expression(l, OP.LIKE, '%s%%' % r),  # 以...开头
+    "istartswith": lambda l, r: Expression(l, OP.ILIKE, '%s%%' % r),  # 以...开头 忽略大小写
+    "endswith": lambda l, r: Expression(l, OP.LIKE, '%%%s' % r),  # 以...结尾
+    "iendswith": lambda l, r: Expression(l, OP.ILIKE, '%%%s' % r),  # 以...结尾，忽略大小写
+}
+DJANGO_MAP.update(CUSTOM_DJANGO_MAP)
 
 
 class ModelMeta(peewee.ModelBase):
@@ -21,14 +33,15 @@ class ModelMeta(peewee.ModelBase):
         cls.__has_whitelist__ = getattr(cls._meta, "has_whitelist", False)
         cls.__accessible_fields__ = set(getattr(cls._meta, "accessible_fields", set()))
         cls.__protected_fields__ = set(getattr(cls._meta, "protected_fields", set()))
-
+        modification_datetime_fields = []
+        for f in cls._meta.sorted_fields:
+            if isinstance(f, ModificationDateTimeField):
+                modification_datetime_fields.append(f)
+        cls.modification_datetime_fields = modification_datetime_fields
         return cls
 
 
 class Model(peewee.Model, metaclass=ModelMeta):
-    created_at = DatetimeTZField(default=pendulum.now)
-    updated_at = DatetimeTZField(default=pendulum.now)
-
     def __init__(self, *args, **kwargs):
         pre_init.send(type(self), instance=self)
         self._validate_errors = None
@@ -42,6 +55,23 @@ class Model(peewee.Model, metaclass=ModelMeta):
         for k, v in self._filter_attrs(query).items():
             setattr(self, k, v)
         return self.save()
+
+    @classmethod
+    def _normalize_modification_datetime(cls):
+        normalized = {}
+        for f in cls.modification_datetime_fields:
+            if f.update_modified:
+                normalized[f.name] = pendulum.now()
+            else:
+                f.update_modified = True
+
+        return normalized
+
+    @classmethod
+    def update(cls, __data=None, **update):
+        modification_datetime = cls._normalize_modification_datetime()
+        update.update(modification_datetime)
+        return super().update(__data, **update)
 
     @classmethod
     def _filter_attrs(cls, attrs):
@@ -95,9 +125,16 @@ class Model(peewee.Model, metaclass=ModelMeta):
         return not self.errors
 
 
+class TimeStampedModel(Model):
+    created_at = CreationDateTimeField(help_text="创建时间")
+    updated_at = ModificationDateTimeField(help_text="变更时间")
+
+
 def _touch_model(sender, instance, created):
-    if issubclass(sender, Model):
-        instance.updated_at = pendulum.now()
+    if issubclass(sender, Model) and not created:
+        for f in instance.modification_datetime_fields:
+            setattr(instance, f.name, pendulum.now())
+            f.update_modified = False
 
 
 pre_save.connect(_touch_model)

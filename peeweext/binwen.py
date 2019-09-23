@@ -1,52 +1,41 @@
 import grpc
-import peewee
 from playhouse import db_url
 from peewee import DoesNotExist, DataError
 from binwen.pb2 import default_pb2
-from binwen.utils import import_obj, cached_property
-from binwen.middleware import BaseMiddleware
+from binwen.utils.cache import cached_property
+from binwen.middleware import MiddlewareMixin
 
-from peeweext.fields import DatetimeTZField, JSONTextField
+
 from peeweext.exceptions import ValidationError
-
-
-def _include_peewee(obj):
-    for key in peewee.__all__:
-        if key == "Model":
-            continue
-
-        try:
-            if not hasattr(obj, key):
-                setattr(obj, key, getattr(peewee, key))
-        except:
-            pass
-
-    obj.DatetimeTZField = DatetimeTZField
-    obj.JSONTextField = JSONTextField
+from peeweext.models import TimeStampedModel, Model
 
 
 class PeeweeExt:
     def __init__(self, alias='default'):
         self.alias = alias
         self.database = None
-        self.model_class = None
-
-        _include_peewee(self)
 
     def init_app(self, app):
         db_config = app.config["DATABASES"][self.alias]
         conn_params = db_config.get('CONN_OPTIONS', {})
         self.database = db_url.connect(db_config['DB_URL'], **conn_params)
-        self.model_class = import_obj(db_config.get('MODEL_ENGINE', 'peeweext.models.Model'))
         self.try_setup_celery()
 
     @cached_property
     def Model(self):
-        class BaseModel(self.model_class):
+        class BaseModel(Model):
             class Meta:
                 database = self.database
 
         return BaseModel
+
+    @cached_property
+    def TimeStampedModel(self):
+        class BaseTimeStampedModel(TimeStampedModel):
+            class Meta:
+                database = self.database
+
+        return BaseTimeStampedModel
 
     def connect_db(self):
         if self.database.is_closed():
@@ -65,7 +54,7 @@ class PeeweeExt:
             pass
 
 
-class PeeweeExtMiddleware(BaseMiddleware):
+class PeeweeExtMiddleware(MiddlewareMixin):
     def __init__(self, app, handler, origin_handler):
         super().__init__(app, handler, origin_handler)
         self.peewee_exts = [ext for ext in app.extensions.values() if isinstance(ext, PeeweeExt)]
@@ -91,3 +80,4 @@ class PeeweeExtMiddleware(BaseMiddleware):
         finally:
             self.close_db()
         return default_pb2.Empty()
+

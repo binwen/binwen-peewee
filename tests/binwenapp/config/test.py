@@ -5,4 +5,4 @@ DATABASES = {
       "DB_URL": "sqlite:///:memory:",
       "CONN_OPTIONS": {}
     }
-  }
+}

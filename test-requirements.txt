@@ -5,3 +5,5 @@ flake8
 coveralls
 codeclimate-test-reporter
 coverage
+binwen-framework
+mysqlclient

@@ -6,6 +6,12 @@ import pendulum
 
 peewee.MySQLDatabase.field_types.update({'DATETIME': 'DATETIME(6)'})
 peewee.PostgresqlDatabase.field_types.update({'DATETIME': 'TIMESTAMPTZ'})
+__all__ = [
+    "DatetimeTZField",
+    "JSONTextField",
+    "CreationDateTimeField",
+    "ModificationDateTimeField"
+]
 
 
 class DatetimeTZField(peewee.Field):
@@ -51,3 +57,21 @@ class JSONTextField(peewee.TextField):
         if value is None:
             return value
         return json.loads(value)
+
+
+class CreationDateTimeField(DatetimeTZField):
+    def __init__(self, *args, **kwargs):
+        if not kwargs.get("default", None):
+            kwargs["default"] = pendulum.now
+
+        super().__init__(*args, **kwargs)
+
+
+class ModificationDateTimeField(DatetimeTZField):
+    def __init__(self, auto_now=True, *args, **kwargs):
+        if auto_now:
+            kwargs["default"] = pendulum.now
+        else:
+            kwargs["null"] = True
+        self.update_modified = True
+        super().__init__(*args, **kwargs)
